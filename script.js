@@ -143,29 +143,42 @@ async function encryptMessage() {
             iv: ivBase64
         });
 
+
+        // ==========================================
+        // CREATE LINK FOR PHONE
+        // ==========================================
+
+        const appURL =
+            "https://banusaziya17-svg.github.io/SecureQR/";
+
+        const secureURL =
+            appURL + "?data=" + encodeURIComponent(secureData);
+
+
         result.innerHTML = `
             <p class="success">
                 ✅ Message encrypted successfully!
             </p>
 
             <p class="encrypted-title">
-                Your Secure QR Code:
+                📱 Scan this QR with a phone:
             </p>
 
             <div id="qrcode"></div>
 
             <p class="encrypted-title">
-                Encrypted Data:
+                🔒 Encrypted Data:
             </p>
 
             <textarea readonly>${secureData}</textarea>
         `;
 
-        // Generate QR code
+
+        // Generate QR containing the app link + encrypted data
         new QRCode(document.getElementById("qrcode"), {
-            text: secureData,
-            width: 250,
-            height: 250
+            text: secureURL,
+            width: 300,
+            height: 300
         });
 
     } catch (error) {
@@ -186,30 +199,20 @@ async function encryptMessage() {
 function showDecrypt() {
 
     document.querySelector(".container").innerHTML = `
-        <h1>🔓 Decode Secure QR</h1>
+        <h1>🔓 Secure Message Received</h1>
 
         <p class="subtitle">
-            Upload your encrypted QR code to recover the message.
+            An encrypted message has been received through the QR code.
         </p>
 
         <div class="form-box">
 
-            <input 
-                type="file"
-                id="qrFile"
-                accept="image/*"
-            >
-
-            <button onclick="readQRImage()">
-                📷 Read QR Code
-            </button>
-
-            <div id="qrResult"></div>
+            <div id="qrReceived"></div>
 
             <input
                 type="password"
                 id="decryptPassword"
-                placeholder="Enter secret password"
+                placeholder="Enter the secret password"
             >
 
             <button onclick="decryptScannedMessage()">
@@ -227,57 +230,26 @@ function showDecrypt() {
 }
 
 
-// ---------- READ QR IMAGE ----------
+// ---------- DATA RECEIVED FROM QR ----------
 
 let scannedQRData = "";
 
-async function readQRImage() {
+function loadQRDataFromURL() {
 
-    const fileInput = document.getElementById("qrFile");
-    const result = document.getElementById("qrResult");
+    const params = new URLSearchParams(window.location.search);
 
-    if (!fileInput.files.length) {
+    const data = params.get("data");
 
-        result.innerHTML = `
-            <p class="error">
-                ❌ Please select a QR image first.
-            </p>
-        `;
+    if (data) {
 
-        return;
-    }
+        scannedQRData = data;
 
-    const file = fileInput.files[0];
-
-    const scanner = new Html5Qrcode("qrResult");
-
-    try {
-
-        const decodedText = await scanner.scanFile(file, true);
-
-        scannedQRData = decodedText;
-
-        result.innerHTML = `
-            <p class="success">
-                ✅ QR code read successfully!
-            </p>
-        `;
-
-    } catch (error) {
-
-        result.innerHTML = `
-            <p class="error">
-                ❌ Could not read the QR code.
-                Please upload a clear QR image.
-            </p>
-        `;
-
-        console.error(error);
+        showDecrypt();
     }
 }
 
 
-// ---------- DECRYPT SCANNED QR ----------
+// ---------- DECRYPT MESSAGE ----------
 
 async function decryptScannedMessage() {
 
@@ -287,49 +259,57 @@ async function decryptScannedMessage() {
     const result =
         document.getElementById("decryptResult");
 
+
     if (scannedQRData === "") {
 
         result.innerHTML = `
             <p class="error">
-                ❌ Please read a QR code first.
+                ❌ No encrypted message found.
             </p>
         `;
 
         return;
     }
+
 
     if (password === "") {
 
         result.innerHTML = `
             <p class="error">
-                ❌ Please enter your password.
+                ❌ Please enter the password.
             </p>
         `;
 
         return;
     }
 
+
     try {
 
         const data = JSON.parse(scannedQRData);
+
 
         const encryptedArray = Uint8Array.from(
             atob(data.encrypted),
             c => c.charCodeAt(0)
         );
 
+
         const salt = Uint8Array.from(
             atob(data.salt),
             c => c.charCodeAt(0)
         );
+
 
         const iv = Uint8Array.from(
             atob(data.iv),
             c => c.charCodeAt(0)
         );
 
+
         // Recreate encryption key
         const key = await createKey(password, salt);
+
 
         // Decrypt message
         const decryptedData =
@@ -342,20 +322,27 @@ async function decryptScannedMessage() {
                 encryptedArray
             );
 
+
         const decoder = new TextDecoder();
 
         const originalMessage =
             decoder.decode(decryptedData);
+
 
         result.innerHTML = `
             <p class="success">
                 ✅ Message decrypted successfully!
             </p>
 
+            <p class="encrypted-title">
+                🔓 Original Secret Message:
+            </p>
+
             <div class="original-message">
                 ${escapeHTML(originalMessage)}
             </div>
         `;
+
 
     } catch (error) {
 
@@ -385,5 +372,15 @@ function escapeHTML(text) {
 // ---------- GO HOME ----------
 
 function goHome() {
-    location.reload();
+
+    window.location.href =
+        "https://banusaziya17-svg.github.io/SecureQR/";
 }
+
+
+// ---------- CHECK FOR QR DATA ----------
+
+window.addEventListener(
+    "DOMContentLoaded",
+    loadQRDataFromURL
+);
