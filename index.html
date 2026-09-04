@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure QR Message</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>🔐 Secure QR Message</h1>
+
+        <p class="subtitle">
+            Protect your secret messages using modern cryptography
+            and QR technology.
+        </p>
+
+        <div class="buttons">
+            <button onclick="showEncrypt()">Create Secure Message</button>
+            <button onclick="showDecrypt()">Decode QR</button>
+        </div>
+
+        <div class="info">
+            <h2>How It Works</h2>
+
+            <p>
+                Your message is encrypted first. The encrypted information
+                is then converted into a QR code for secure transfer.
+            </p>
+
+            <div class="flow">
+                <span>Message</span>
+                <span>→</span>
+                <span>Encryption</span>
+                <span>→</span>
+                <span>QR Code</span>
+                <span>→</span>
+                <span>Decryption</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
