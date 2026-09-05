@@ -45,6 +45,24 @@
 
     </div>
 
+          <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <script>
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "qr-d86d2.firebaseapp.com",
+        projectId: "qr-d86d2",
+        storageBucket: "qr-d86d2.firebasestorage.app",
+        messagingSenderId: "77329444700",
+        appId: "1:77329444700:web:f8d75bd573b9ca3255db99a",
+        measurementId: "G-CC60RCHNK3"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    </script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="script.js"></script>
 
