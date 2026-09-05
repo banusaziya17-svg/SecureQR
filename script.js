@@ -15,14 +15,14 @@ function showEncrypt() {
 
         <div class="form-box">
 
-            <textarea 
-                id="message" 
+            <textarea
+                id="message"
                 placeholder="Enter your secret message..."
             ></textarea>
 
-            <input 
-                type="password" 
-                id="password" 
+            <input
+                type="password"
+                id="password"
                 placeholder="Enter secret password"
             >
 
@@ -46,7 +46,6 @@ function showEncrypt() {
 async function createKey(password, salt) {
 
     const encoder = new TextEncoder();
-
     const passwordData = encoder.encode(password);
 
     const baseKey = await crypto.subtle.importKey(
@@ -98,12 +97,12 @@ async function encryptMessage() {
 
         const encoder = new TextEncoder();
 
-        // Create random salt
+        // Random salt
         const salt = crypto.getRandomValues(
             new Uint8Array(16)
         );
 
-        // Create random initialization vector
+        // Random IV
         const iv = crypto.getRandomValues(
             new Uint8Array(12)
         );
@@ -121,11 +120,11 @@ async function encryptMessage() {
             encoder.encode(message)
         );
 
-        // Convert encrypted data to Base64
-        const encryptedArray = new Uint8Array(encryptedData);
-
+        // Convert to Base64
         const encryptedBase64 = btoa(
-            String.fromCharCode(...encryptedArray)
+            String.fromCharCode(
+                ...new Uint8Array(encryptedData)
+            )
         );
 
         const saltBase64 = btoa(
@@ -136,23 +135,28 @@ async function encryptMessage() {
             String.fromCharCode(...iv)
         );
 
-        // Store everything needed for decryption
-        const secureData = JSON.stringify({
+
+        // ==========================================
+        // SAVE ENCRYPTED DATA TO FIRESTORE
+        // ==========================================
+
+        const docRef = await db.collection("messages").add({
             encrypted: encryptedBase64,
             salt: saltBase64,
-            iv: ivBase64
+            iv: ivBase64,
+            createdAt: new Date().toISOString()
         });
 
 
         // ==========================================
-        // CREATE LINK FOR PHONE
+        // CREATE SHORT QR LINK
         // ==========================================
 
         const appURL =
             "https://banusaziya17-svg.github.io/SecureQR/";
 
         const secureURL =
-            appURL + "?data=" + encodeURIComponent(secureData);
+            appURL + "?id=" + docRef.id;
 
 
         result.innerHTML = `
@@ -167,19 +171,23 @@ async function encryptMessage() {
             <div id="qrcode"></div>
 
             <p class="encrypted-title">
-                🔒 Encrypted Data:
+                🔒 Secure Message ID:
             </p>
 
-            <textarea readonly>${secureData}</textarea>
+            <p>${docRef.id}</p>
         `;
 
 
-        // Generate QR containing the app link + encrypted data
-        new QRCode(document.getElementById("qrcode"), {
-            text: secureURL,
-            width: 300,
-            height: 300
-        });
+        // Generate QR
+        new QRCode(
+            document.getElementById("qrcode"),
+            {
+                text: secureURL,
+                width: 300,
+                height: 300
+            }
+        );
+
 
     } catch (error) {
 
@@ -202,12 +210,14 @@ function showDecrypt() {
         <h1>🔓 Secure Message Received</h1>
 
         <p class="subtitle">
-            An encrypted message has been received through the QR code.
+            Encrypted message received through QR code.
         </p>
 
         <div class="form-box">
 
-            <div id="qrReceived"></div>
+            <p id="loadingMessage">
+                🔄 Loading secure message...
+            </p>
 
             <input
                 type="password"
@@ -230,21 +240,63 @@ function showDecrypt() {
 }
 
 
-// ---------- DATA RECEIVED FROM QR ----------
+// ---------- FIRESTORE DATA ----------
 
 let scannedQRData = "";
 
-function loadQRDataFromURL() {
 
-    const params = new URLSearchParams(window.location.search);
+// ---------- LOAD DATA FROM QR ID ----------
 
-    const data = params.get("data");
+async function loadQRDataFromURL() {
 
-    if (data) {
+    const params = new URLSearchParams(
+        window.location.search
+    );
 
-        scannedQRData = data;
+    const id = params.get("id");
 
-        showDecrypt();
+    if (!id) {
+        return;
+    }
+
+    scannedQRData = id;
+
+    showDecrypt();
+
+    try {
+
+        const doc = await db
+            .collection("messages")
+            .doc(id)
+            .get();
+
+        const loading =
+            document.getElementById("loadingMessage");
+
+        if (!doc.exists) {
+
+            loading.innerHTML = `
+                ❌ Secure message not found.
+            `;
+
+            return;
+        }
+
+        loading.innerHTML = `
+            ✅ Secure message received.
+            <br>
+            Enter the password to decrypt it.
+        `;
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById(
+            "loadingMessage"
+        ).innerHTML = `
+            ❌ Could not load secure message.
+        `;
     }
 }
 
@@ -254,17 +306,21 @@ function loadQRDataFromURL() {
 async function decryptScannedMessage() {
 
     const password =
-        document.getElementById("decryptPassword").value;
+        document.getElementById(
+            "decryptPassword"
+        ).value;
 
     const result =
-        document.getElementById("decryptResult");
+        document.getElementById(
+            "decryptResult"
+        );
 
 
     if (scannedQRData === "") {
 
         result.innerHTML = `
             <p class="error">
-                ❌ No encrypted message found.
+                ❌ No secure message found.
             </p>
         `;
 
@@ -286,32 +342,59 @@ async function decryptScannedMessage() {
 
     try {
 
-        const data = JSON.parse(scannedQRData);
+        // Get encrypted data from Firestore
+        const doc = await db
+            .collection("messages")
+            .doc(scannedQRData)
+            .get();
 
 
-        const encryptedArray = Uint8Array.from(
-            atob(data.encrypted),
-            c => c.charCodeAt(0)
-        );
+        if (!doc.exists) {
+
+            result.innerHTML = `
+                <p class="error">
+                    ❌ Secure message not found.
+                </p>
+            `;
+
+            return;
+        }
 
 
-        const salt = Uint8Array.from(
-            atob(data.salt),
-            c => c.charCodeAt(0)
-        );
+        const data = doc.data();
 
 
-        const iv = Uint8Array.from(
-            atob(data.iv),
-            c => c.charCodeAt(0)
-        );
+        // Convert Base64 back to bytes
+        const encryptedArray =
+            Uint8Array.from(
+                atob(data.encrypted),
+                c => c.charCodeAt(0)
+            );
+
+
+        const salt =
+            Uint8Array.from(
+                atob(data.salt),
+                c => c.charCodeAt(0)
+            );
+
+
+        const iv =
+            Uint8Array.from(
+                atob(data.iv),
+                c => c.charCodeAt(0)
+            );
 
 
         // Recreate encryption key
-        const key = await createKey(password, salt);
+        const key =
+            await createKey(
+                password,
+                salt
+            );
 
 
-        // Decrypt message
+        // Decrypt
         const decryptedData =
             await crypto.subtle.decrypt(
                 {
@@ -323,7 +406,9 @@ async function decryptScannedMessage() {
             );
 
 
-        const decoder = new TextDecoder();
+        const decoder =
+            new TextDecoder();
+
 
         const originalMessage =
             decoder.decode(decryptedData);
@@ -348,7 +433,7 @@ async function decryptScannedMessage() {
 
         result.innerHTML = `
             <p class="error">
-                ❌ Incorrect password or invalid QR code.
+                ❌ Incorrect password or invalid secure message.
             </p>
         `;
 
@@ -361,7 +446,8 @@ async function decryptScannedMessage() {
 
 function escapeHTML(text) {
 
-    const div = document.createElement("div");
+    const div =
+        document.createElement("div");
 
     div.textContent = text;
 
@@ -378,7 +464,7 @@ function goHome() {
 }
 
 
-// ---------- CHECK FOR QR DATA ----------
+// ---------- CHECK QR DATA ----------
 
 window.addEventListener(
     "DOMContentLoaded",
